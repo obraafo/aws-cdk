@@ -587,11 +587,12 @@ You can set the maximum time that can elapse before a custom resource operation 
 
 ### Customizing the Lambda function implementing the custom resource
 
-Use the `role`, `timeout`, `memorySize`, `logGroup`, `functionName` and `removalPolicy` properties to customize
+Use the `role`, `timeout`, `memorySize`, `logGroup`, `functionName`, `securityGroups` and `removalPolicy` properties to customize
 the Lambda function implementing the custom resource:
 
 ```ts
 declare const myRole: iam.Role;
+declare const sg: ec2.SecurityGroup
 new cr.AwsCustomResource(this, 'Customized', {
   role: myRole, // must be assumable by the `lambda.amazonaws.com` service principal
   timeout: Duration.minutes(10), // defaults to 2 minutes
@@ -604,6 +605,7 @@ new cr.AwsCustomResource(this, 'Customized', {
   policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
     resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
   }),
+  securityGroups: [sg], 
 });
 ```
 

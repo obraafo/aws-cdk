@@ -417,6 +417,13 @@ export interface AwsCustomResourceProps {
   readonly vpcSubnets?: ec2.SubnetSelection;
 
   /**
+   * A list of IDs of security groups that the lambda function should use
+   *
+   * @default - a new security group will be created in the specified VPC
+   */
+  readonly securityGroups?: ec2.ISecurityGroup[];
+
+  /**
    * The maximum time that can elapse before a custom resource operation times out.
    *
    * You should not need to set this property. It is intended to allow quick turnaround
