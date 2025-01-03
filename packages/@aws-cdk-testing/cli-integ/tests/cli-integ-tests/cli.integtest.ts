@@ -1,4 +1,5 @@
-import { promises as fs, existsSync } from 'fs';
+import { existsSync, promises as fs } from 'fs';
+import * as querystring from 'node:querystring';
 import * as os from 'os';
 import * as path from 'path';
 import {
@@ -7,6 +8,8 @@ import {
   DescribeStacksCommand,
   GetTemplateCommand,
   ListChangeSetsCommand,
+  UpdateStackCommand,
+  waitUntilStackUpdateComplete,
 } from '@aws-sdk/client-cloudformation';
 import { DescribeServicesCommand } from '@aws-sdk/client-ecs';
 import {
@@ -20,21 +23,23 @@ import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { PutObjectLockConfigurationCommand } from '@aws-sdk/client-s3';
 import { CreateTopicCommand, DeleteTopicCommand } from '@aws-sdk/client-sns';
 import { AssumeRoleCommand, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
+import * as mockttp from 'mockttp';
+import { CompletedRequest } from 'mockttp';
 import {
-  integTest,
   cloneDirectory,
-  shell,
-  withDefaultFixture,
-  retry,
-  sleep,
+  integTest,
   randomInteger,
-  withSamIntegrationFixture,
-  RESOURCES_DIR,
-  withCDKMigrateFixture,
-  withExtendedTimeoutFixture,
   randomString,
-  withSpecificFixture,
+  RESOURCES_DIR,
+  retry,
+  shell,
+  sleep,
+  withCDKMigrateFixture,
+  withDefaultFixture,
+  withExtendedTimeoutFixture,
   withoutBootstrap,
+  withSamIntegrationFixture,
+  withSpecificFixture,
 } from '../../lib';
 
 jest.setTimeout(2 * 60 * 60_000); // Includes the time to acquire locks, worst-case single-threaded runtime
@@ -482,6 +487,65 @@ integTest(
   }),
 );
 
+integTest('deploy with import-existing-resources true', withDefaultFixture(async (fixture) => {
+  const stackArn = await fixture.cdkDeploy('test-2', {
+    options: ['--no-execute', '--import-existing-resources'],
+    captureStderr: false,
+  });
+  // verify that we only deployed a single stack (there's a single ARN in the output)
+  expect(stackArn.split('\n').length).toEqual(1);
+
+  const response = await fixture.aws.cloudFormation.send(new DescribeStacksCommand({
+    StackName: stackArn,
+  }));
+  expect(response.Stacks?.[0].StackStatus).toEqual('REVIEW_IN_PROGRESS');
+
+  // verify a change set was successfully created
+  // Here, we do not test whether a resource is actually imported, because that is a CloudFormation feature, not a CDK feature.
+  const changeSetResponse = await fixture.aws.cloudFormation.send(new ListChangeSetsCommand({
+    StackName: stackArn,
+  }));
+  const changeSets = changeSetResponse.Summaries || [];
+  expect(changeSets.length).toEqual(1);
+  expect(changeSets[0].Status).toEqual('CREATE_COMPLETE');
+  expect(changeSets[0].ImportExistingResources).toEqual(true);
+}));
+
+integTest('deploy without import-existing-resources', withDefaultFixture(async (fixture) => {
+  const stackArn = await fixture.cdkDeploy('test-2', {
+    options: ['--no-execute'],
+    captureStderr: false,
+  });
+  // verify that we only deployed a single stack (there's a single ARN in the output)
+  expect(stackArn.split('\n').length).toEqual(1);
+
+  const response = await fixture.aws.cloudFormation.send(new DescribeStacksCommand({
+    StackName: stackArn,
+  }));
+  expect(response.Stacks?.[0].StackStatus).toEqual('REVIEW_IN_PROGRESS');
+
+  // verify a change set was successfully created and ImportExistingResources = false
+  const changeSetResponse = await fixture.aws.cloudFormation.send(new ListChangeSetsCommand({
+    StackName: stackArn,
+  }));
+  const changeSets = changeSetResponse.Summaries || [];
+  expect(changeSets.length).toEqual(1);
+  expect(changeSets[0].Status).toEqual('CREATE_COMPLETE');
+  expect(changeSets[0].ImportExistingResources).toEqual(false);
+}));
+
+integTest('deploy with method=direct and import-existing-resources fails', withDefaultFixture(async (fixture) => {
+  const stackName = 'iam-test';
+  await expect(fixture.cdkDeploy(stackName, {
+    options: ['--import-existing-resources', '--method=direct'],
+  })).rejects.toThrow('exited with error');
+
+  // Ensure stack was not deployed
+  await expect(fixture.aws.cloudFormation.send(new DescribeStacksCommand({
+    StackName: fixture.fullStackName(stackName),
+  }))).rejects.toThrow('does not exist');
+}));
+
 integTest(
   'update to stack in ROLLBACK_COMPLETE state will delete stack and create a new one',
   withDefaultFixture(async (fixture) => {
@@ -633,14 +697,14 @@ integTest(
     const topicArn = response.TopicArn!;
 
     try {
-      await fixture.cdkDeploy('test-2', {
+      await fixture.cdkDeploy('notification-arns', {
         options: ['--notification-arns', topicArn],
       });
 
       // verify that the stack we deployed has our notification ARN
       const describeResponse = await fixture.aws.cloudFormation.send(
         new DescribeStacksCommand({
-          StackName: fixture.fullStackName('test-2'),
+          StackName: fixture.fullStackName('notification-arns'),
         }),
       );
       expect(describeResponse.Stacks?.[0].NotificationARNs).toEqual([topicArn]);
@@ -661,12 +725,17 @@ integTest('deploy with notification ARN as prop', withDefaultFixture(async (fixt
   const topicArn = response.TopicArn!;
 
   try {
-    await fixture.cdkDeploy('notification-arn-prop');
+    await fixture.cdkDeploy('notification-arns', {
+      modEnv: {
+        INTEG_NOTIFICATION_ARNS: topicArn,
+
+      },
+    });
 
     // verify that the stack we deployed has our notification ARN
     const describeResponse = await fixture.aws.cloudFormation.send(
       new DescribeStacksCommand({
-        StackName: fixture.fullStackName('notification-arn-prop'),
+        StackName: fixture.fullStackName('notification-arns'),
       }),
     );
     expect(describeResponse.Stacks?.[0].NotificationARNs).toEqual([topicArn]);
@@ -674,6 +743,133 @@ integTest('deploy with notification ARN as prop', withDefaultFixture(async (fixt
     await fixture.aws.sns.send(
       new DeleteTopicCommand({
         TopicArn: topicArn,
+      }),
+    );
+  }
+}));
+
+// https://github.com/aws/aws-cdk/issues/32153
+integTest('deploy preserves existing notification arns when not specified', withDefaultFixture(async (fixture) => {
+  const topicName = `${fixture.stackNamePrefix}-topic`;
+
+  const response = await fixture.aws.sns.send(new CreateTopicCommand({ Name: topicName }));
+  const topicArn = response.TopicArn!;
+
+  try {
+    await fixture.cdkDeploy('notification-arns');
+
+    // add notification arns externally to cdk
+    await fixture.aws.cloudFormation.send(
+      new UpdateStackCommand({
+        StackName: fixture.fullStackName('notification-arns'),
+        UsePreviousTemplate: true,
+        NotificationARNs: [topicArn],
+      }),
+    );
+
+    await waitUntilStackUpdateComplete(
+      {
+        client: fixture.aws.cloudFormation,
+        maxWaitTime: 600,
+      },
+      { StackName: fixture.fullStackName('notification-arns') },
+    );
+
+    // deploy again
+    await fixture.cdkDeploy('notification-arns');
+
+    // make sure the notification arn is preserved
+    const describeResponse = await fixture.aws.cloudFormation.send(
+      new DescribeStacksCommand({
+        StackName: fixture.fullStackName('notification-arns'),
+      }),
+    );
+    expect(describeResponse.Stacks?.[0].NotificationARNs).toEqual([topicArn]);
+  } finally {
+    await fixture.aws.sns.send(
+      new DeleteTopicCommand({
+        TopicArn: topicArn,
+      }),
+    );
+  }
+}));
+
+integTest('deploy deletes ALL notification arns when empty array is passed', withDefaultFixture(async (fixture) => {
+  const topicName = `${fixture.stackNamePrefix}-topic`;
+
+  const response = await fixture.aws.sns.send(new CreateTopicCommand({ Name: topicName }));
+  const topicArn = response.TopicArn!;
+
+  try {
+    await fixture.cdkDeploy('notification-arns', {
+      modEnv: {
+        INTEG_NOTIFICATION_ARNS: topicArn,
+      },
+    });
+
+    // make sure the arn was added
+    let describeResponse = await fixture.aws.cloudFormation.send(
+      new DescribeStacksCommand({
+        StackName: fixture.fullStackName('notification-arns'),
+      }),
+    );
+    expect(describeResponse.Stacks?.[0].NotificationARNs).toEqual([topicArn]);
+
+    // deploy again with empty array
+    await fixture.cdkDeploy('notification-arns', {
+      modEnv: {
+        INTEG_NOTIFICATION_ARNS: '',
+      },
+    });
+
+    // make sure the arn was deleted
+    describeResponse = await fixture.aws.cloudFormation.send(
+      new DescribeStacksCommand({
+        StackName: fixture.fullStackName('notification-arns'),
+      }),
+    );
+    expect(describeResponse.Stacks?.[0].NotificationARNs).toEqual([]);
+  } finally {
+    await fixture.aws.sns.send(
+      new DeleteTopicCommand({
+        TopicArn: topicArn,
+      }),
+    );
+  }
+}));
+
+integTest('deploy with notification ARN as prop and flag', withDefaultFixture(async (fixture) => {
+  const topic1Name = `${fixture.stackNamePrefix}-topic1`;
+  const topic2Name = `${fixture.stackNamePrefix}-topic1`;
+
+  const topic1Arn = (await fixture.aws.sns.send(new CreateTopicCommand({ Name: topic1Name }))).TopicArn!;
+  const topic2Arn = (await fixture.aws.sns.send(new CreateTopicCommand({ Name: topic2Name }))).TopicArn!;
+
+  try {
+    await fixture.cdkDeploy('notification-arns', {
+      modEnv: {
+        INTEG_NOTIFICATION_ARNS: topic1Arn,
+
+      },
+      options: ['--notification-arns', topic2Arn],
+    });
+
+    // verify that the stack we deployed has our notification ARN
+    const describeResponse = await fixture.aws.cloudFormation.send(
+      new DescribeStacksCommand({
+        StackName: fixture.fullStackName('notification-arns'),
+      }),
+    );
+    expect(describeResponse.Stacks?.[0].NotificationARNs).toEqual([topic1Arn, topic2Arn]);
+  } finally {
+    await fixture.aws.sns.send(
+      new DeleteTopicCommand({
+        TopicArn: topic1Arn,
+      }),
+    );
+    await fixture.aws.sns.send(
+      new DeleteTopicCommand({
+        TopicArn: topic2Arn,
       }),
     );
   }
@@ -977,7 +1173,7 @@ integTest(
     await diffShouldSucceedWith({ fail: undefined, enableDiffNoFail: true });
 
     async function diffShouldSucceedWith(props: DiffParameters) {
-      await expect(diff(props)).resolves.not.toThrowError();
+      await expect(diff(props)).resolves.not.toThrow();
     }
 
     async function diffShouldFailWith(props: DiffParameters) {
@@ -1061,6 +1257,46 @@ integTest(
     // Assert that the CLI assumes the file publishing role:
     expect(diff).toMatch(/Assuming role .*file-publishing-role/);
     expect(diff).toContain('success: Published');
+  }),
+);
+
+integTest(
+  'cdk diff doesnt show resource metadata changes',
+  withDefaultFixture(async (fixture) => {
+
+    // GIVEN - small initial stack with default resource metadata
+    await fixture.cdkDeploy('metadata');
+
+    // WHEN - changing resource metadata value
+    const diff = await fixture.cdk(['diff', fixture.fullStackName('metadata')], {
+      verbose: true,
+      modEnv: {
+        INTEG_METADATA_VALUE: 'custom',
+      },
+    });
+
+    // Assert there are no changes
+    expect(diff).toContain('There were no differences');
+  }),
+);
+
+integTest(
+  'cdk diff shows resource metadata changes with --no-change-set',
+  withDefaultFixture(async (fixture) => {
+
+    // GIVEN - small initial stack with default resource metadata
+    await fixture.cdkDeploy('metadata');
+
+    // WHEN - changing resource metadata value
+    const diff = await fixture.cdk(['diff --no-change-set', fixture.fullStackName('metadata')], {
+      verbose: true,
+      modEnv: {
+        INTEG_METADATA_VALUE: 'custom',
+      },
+    });
+
+    // Assert there are changes
+    expect(diff).not.toContain('There were no differences');
   }),
 );
 
@@ -2635,3 +2871,63 @@ integTest('cdk notices are displayed correctly', withDefaultFixture(async (fixtu
   expect(output).toContain(`AffectedEnvironments:<aws://${await fixture.aws.account()}/${fixture.aws.region}>`);
 
 }));
+
+integTest('requests go through a proxy when configured',
+  withDefaultFixture(async (fixture) => {
+    // Set up key and certificate
+    const { key, cert } = await mockttp.generateCACertificate();
+    const certDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cdk-'));
+    const certPath = path.join(certDir, 'cert.pem');
+    const keyPath = path.join(certDir, 'key.pem');
+    await fs.writeFile(keyPath, key);
+    await fs.writeFile(certPath, cert);
+
+    const proxyServer = mockttp.getLocal({
+      https: { keyPath, certPath },
+    });
+
+    // We don't need to modify any request, so the proxy
+    // passes through all requests to the target host.
+    const endpoint = await proxyServer
+      .forAnyRequest()
+      .thenPassThrough();
+
+    proxyServer.enableDebug();
+    await proxyServer.start();
+
+    // The proxy is now ready to intercept requests
+
+    try {
+      await fixture.cdkDeploy('test-2', {
+        captureStderr: true,
+        options: [
+          '--proxy', proxyServer.url,
+          '--ca-bundle-path', certPath,
+        ],
+        modEnv: {
+          CDK_HOME: fixture.integTestDir,
+        },
+      });
+    } finally {
+      await fs.rm(certDir, { recursive: true, force: true });
+      await proxyServer.stop();
+    }
+
+    const requests = await endpoint.getSeenRequests();
+
+    expect(requests.map(req => req.url))
+      .toContain('https://cli.cdk.dev-tools.aws.dev/notices.json');
+
+    const actionsUsed = actions(requests);
+    expect(actionsUsed).toContain('AssumeRole');
+    expect(actionsUsed).toContain('CreateChangeSet');
+  }),
+);
+
+function actions(requests: CompletedRequest[]): string[] {
+  return [...new Set(requests
+    .map(req => req.body.buffer.toString('utf-8'))
+    .map(body => querystring.decode(body))
+    .map(x => x.Action as string)
+    .filter(action => action != null))];
+}
