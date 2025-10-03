@@ -1,13 +1,19 @@
 import { Construct } from 'constructs';
-import { CfnGatewayResponse, CfnGatewayResponseProps } from './apigateway.generated';
+import {
+  CfnGatewayResponse,
+  CfnGatewayResponseProps,
+  GatewayResponseReference,
+  IGatewayResponseRef,
+} from './apigateway.generated';
 import { IRestApi } from './restapi';
 import { IResource, Resource } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents gateway response resource.
  */
-export interface IGatewayResponse extends IResource {
+export interface IGatewayResponse extends IResource, IGatewayResponseRef {
 }
 
 /**
@@ -55,7 +61,25 @@ export interface GatewayResponseOptions {
  *
  * @resource AWS::ApiGateway::GatewayResponse
  */
+@propertyInjectable
 export class GatewayResponse extends Resource implements IGatewayResponse {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-apigateway.GatewayResponse';
+
+  /**
+   * Reference an existing GatewayResponse given a gateway response ID.
+   */
+  public static fromGatewayResponseId(scope: Construct, id: string, gatewayResponseId: string): IGatewayResponse {
+    class Import extends Resource implements IGatewayResponse {
+      public readonly gatewayResponseRef = {
+        gatewayResponseId: gatewayResponseId,
+      };
+    }
+    return new Import(scope, id);
+  }
+
+  public readonly gatewayResponseRef: GatewayResponseReference;
+
   constructor(scope: Construct, id: string, props: GatewayResponseProps) {
     super(scope, id);
     // Enhanced CDK Analytics Telemetry
@@ -81,6 +105,7 @@ export class GatewayResponse extends Resource implements IGatewayResponse {
       });
     }
 
+    this.gatewayResponseRef = resource.gatewayResponseRef;
     this.node.defaultChild = resource;
   }
 

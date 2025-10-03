@@ -12,6 +12,7 @@ import { IVpcConnector } from './vpc-connector';
 import { IAutoScalingConfiguration } from './auto-scaling-configuration';
 import { IObservabilityConfiguration } from './observability-configuration';
 import { addConstructMetadata, MethodMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * The image repository types
@@ -226,6 +227,11 @@ export class Runtime {
    * Ruby 3.1
    */
   public static readonly RUBY_31 = Runtime.of('RUBY_31');
+
+  /**
+   * NodeJS 22
+   */
+  public static readonly NODEJS_22 = Runtime.of('NODEJS_22');
 
   /**
    * Other runtimes
@@ -755,7 +761,7 @@ export interface ServiceProps {
    *
    * @default - Use an AWS managed key
    */
-  readonly kmsKey?: kms.IKey;
+  readonly kmsKey?: kms.IKeyRef;
 
   /**
    * The IP address type for your incoming public network configuration.
@@ -1179,7 +1185,11 @@ export abstract class Secret {
 /**
  * The App Runner Service.
  */
+@propertyInjectable
 export class Service extends cdk.Resource implements IService, iam.IGrantable {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-apprunner-alpha.Service';
+
   /**
    * Import from service name.
    */
@@ -1328,7 +1338,7 @@ export class Service extends cdk.Resource implements IService, iam.IGrantable {
           undefined,
       },
       encryptionConfiguration: this.props.kmsKey ? {
-        kmsKey: this.props.kmsKey.keyArn,
+        kmsKey: this.props.kmsKey.keyRef.keyArn,
       } : undefined,
       autoScalingConfigurationArn: this.props.autoScalingConfiguration?.autoScalingConfigurationArn,
       networkConfiguration: {

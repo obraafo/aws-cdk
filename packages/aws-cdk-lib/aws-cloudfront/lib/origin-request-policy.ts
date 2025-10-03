@@ -1,12 +1,13 @@
-import { Construct } from 'constructs';
-import { CfnOriginRequestPolicy } from './cloudfront.generated';
+import { Construct, Node } from 'constructs';
+import { CfnOriginRequestPolicy, IOriginRequestPolicyRef, OriginRequestPolicyReference } from './cloudfront.generated';
 import { Names, Resource, Token, UnscopedValidationError, ValidationError } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents a Origin Request Policy
  */
-export interface IOriginRequestPolicy {
+export interface IOriginRequestPolicy extends IOriginRequestPolicyRef {
   /**
    * The ID of the origin request policy
    * @attribute
@@ -55,7 +56,10 @@ export interface OriginRequestPolicyProps {
  *
  * @resource AWS::CloudFront::OriginRequestPolicy
  */
+@propertyInjectable
 export class OriginRequestPolicy extends Resource implements IOriginRequestPolicy {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-cloudfront.OriginRequestPolicy';
   /** This policy includes only the User-Agent and Referer headers. It doesn’t include any query strings or cookies. */
   public static readonly USER_AGENT_REFERER_HEADERS = OriginRequestPolicy.fromManagedOriginRequestPolicy('acba4595-bd28-49b8-b9fe-13317c0390fa');
   /** This policy includes the header that enables cross-origin resource sharing (CORS) requests when the origin is a custom origin. */
@@ -75,17 +79,28 @@ export class OriginRequestPolicy extends Resource implements IOriginRequestPolic
   public static fromOriginRequestPolicyId(scope: Construct, id: string, originRequestPolicyId: string): IOriginRequestPolicy {
     return new class extends Resource implements IOriginRequestPolicy {
       public readonly originRequestPolicyId = originRequestPolicyId;
+      public readonly originRequestPolicyRef = {
+        originRequestPolicyId: originRequestPolicyId,
+      };
     }(scope, id);
   }
 
   /** Use an existing managed origin request policy. */
   private static fromManagedOriginRequestPolicy(managedOriginRequestPolicyId: string): IOriginRequestPolicy {
     return new class implements IOriginRequestPolicy {
+      public get node(): Node {
+        throw new UnscopedValidationError('The result of fromManagedOriginRequestPolicy can not be used in this API');
+      }
+
       public readonly originRequestPolicyId = managedOriginRequestPolicyId;
+      public readonly originRequestPolicyRef = {
+        originRequestPolicyId: managedOriginRequestPolicyId,
+      };
     }();
   }
 
   public readonly originRequestPolicyId: string;
+  public readonly originRequestPolicyRef: OriginRequestPolicyReference;
 
   constructor(scope: Construct, id: string, props: OriginRequestPolicyProps = {}) {
     super(scope, id, {
@@ -122,6 +137,7 @@ export class OriginRequestPolicy extends Resource implements IOriginRequestPolic
       },
     });
 
+    this.originRequestPolicyRef = resource.originRequestPolicyRef;
     this.originRequestPolicyId = resource.ref;
   }
 }

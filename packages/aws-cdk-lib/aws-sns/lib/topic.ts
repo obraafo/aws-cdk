@@ -1,11 +1,12 @@
 import { Construct } from 'constructs';
 import { CfnTopic } from './sns.generated';
 import { ITopic, TopicBase } from './topic-base';
-import { IRole } from '../../aws-iam';
+import { IRoleRef } from '../../aws-iam';
 import { IKey, Key } from '../../aws-kms';
-import { ArnFormat, Lazy, Names, propertyInjectable, Stack, Token } from '../../core';
+import { ArnFormat, Lazy, Names, Stack, Token } from '../../core';
 import { ValidationError } from '../../core/lib/errors';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Properties for a new SNS topic
@@ -146,14 +147,14 @@ export interface LoggingConfig {
    *
    * @default None
    */
-  readonly failureFeedbackRole?: IRole;
+  readonly failureFeedbackRole?: IRoleRef;
 
   /**
    * The IAM role to be used when logging successful message deliveries in Amazon CloudWatch.
    *
    * @default None
    */
-  readonly successFeedbackRole?: IRole;
+  readonly successFeedbackRole?: IRoleRef;
 
   /**
    * The percentage of successful message deliveries to be logged in Amazon CloudWatch.
@@ -393,8 +394,8 @@ export class Topic extends TopicBase {
       }
       return {
         protocol: spec.protocol,
-        failureFeedbackRoleArn: spec.failureFeedbackRole?.roleArn,
-        successFeedbackRoleArn: spec.successFeedbackRole?.roleArn,
+        failureFeedbackRoleArn: spec.failureFeedbackRole?.roleRef.roleArn,
+        successFeedbackRoleArn: spec.successFeedbackRole?.roleRef.roleArn,
         successFeedbackSampleRate: spec.successFeedbackSampleRate?.toString(),
       };
     };

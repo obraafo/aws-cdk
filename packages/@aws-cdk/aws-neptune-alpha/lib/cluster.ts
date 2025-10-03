@@ -11,6 +11,7 @@ import { CfnDBCluster, CfnDBInstance } from 'aws-cdk-lib/aws-neptune';
 import { IClusterParameterGroup, IParameterGroup } from './parameter-group';
 import { ISubnetGroup, SubnetGroup } from './subnet-group';
 import { addConstructMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * Possible Instances Types to use in Neptune cluster
@@ -133,6 +134,10 @@ export class EngineVersion {
    * Neptune engine version 1.4.5.0
    */
   public static readonly V1_4_5_0 = new EngineVersion('1.4.5.0');
+  /**
+   * Neptune engine version 1.4.5.1
+   */
+  public static readonly V1_4_5_1 = new EngineVersion('1.4.5.1');
 
   /**
    * Constructor for specifying a custom engine version
@@ -208,7 +213,7 @@ export interface DatabaseClusterProps {
    *
    * @default - default master key.
    */
-  readonly kmsKey?: kms.IKey;
+  readonly kmsKey?: kms.IKeyRef;
 
   /**
    * Whether to enable storage encryption
@@ -569,7 +574,10 @@ export abstract class DatabaseClusterBase extends Resource implements IDatabaseC
  *
  * @resource AWS::Neptune::DBCluster
  */
+@propertyInjectable
 export class DatabaseCluster extends DatabaseClusterBase implements IDatabaseCluster {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-neptune-alpha.DatabaseCluster';
   /**
    * The default number of instances in the Neptune cluster if none are
    * specified
@@ -679,7 +687,7 @@ export class DatabaseCluster extends DatabaseClusterBase implements IDatabaseClu
       preferredBackupWindow: props.preferredBackupWindow,
       preferredMaintenanceWindow: props.preferredMaintenanceWindow,
       // Encryption
-      kmsKeyId: props.kmsKey?.keyArn,
+      kmsKeyId: props.kmsKey?.keyRef.keyArn,
       // CloudWatch Logs exports
       enableCloudwatchLogsExports: props.cloudwatchLogsExports?.map(logType => logType.value),
       storageEncrypted,

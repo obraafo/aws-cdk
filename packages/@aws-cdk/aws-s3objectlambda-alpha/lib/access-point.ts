@@ -5,6 +5,7 @@ import * as core from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import { CfnAccessPoint } from 'aws-cdk-lib/aws-s3objectlambda';
 import { addConstructMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * The interface that represents the AccessPoint resource.
@@ -50,7 +51,7 @@ export interface AccessPointProps {
   /**
    * The bucket to which this access point belongs.
    */
-  readonly bucket: s3.IBucket;
+  readonly bucket: s3.IBucketRef;
 
   /**
    * The Lambda function used to transform objects.
@@ -167,7 +168,11 @@ function validateAccessPointName(name: string): void {
  * An S3 object lambda access point for intercepting and
  * transforming `GetObject` requests.
  */
+@propertyInjectable
 export class AccessPoint extends AccessPointBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-s3objectlambda-alpha.AccessPoint';
+
   /**
    * Reference an existing AccessPoint defined outside of the CDK code.
    */
@@ -219,7 +224,7 @@ export class AccessPoint extends AccessPointBase {
     }
 
     const supporting = new s3.CfnAccessPoint(this, 'SupportingAccessPoint', {
-      bucket: props.bucket.bucketName,
+      bucket: props.bucket.bucketRef.bucketName,
     });
 
     const allowedFeatures = [];

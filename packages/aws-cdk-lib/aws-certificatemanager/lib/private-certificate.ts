@@ -4,6 +4,7 @@ import { CertificateBase } from './certificate-base';
 import { CfnCertificate } from './certificatemanager.generated';
 import * as acmpca from '../../aws-acmpca';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Properties for your private certificate
@@ -41,6 +42,16 @@ export interface PrivateCertificateProps {
    * @default KeyAlgorithm.RSA_2048
    */
   readonly keyAlgorithm?: KeyAlgorithm;
+
+  /**
+   * Enable or disable export of this certificate.
+   *
+   * If you issue an exportable public certificate, there is a charge at certificate issuance and again when the certificate renews.
+   * Ref: https://aws.amazon.com/certificate-manager/pricing
+   *
+   * @default false
+   */
+  readonly allowExport?: boolean;
 }
 
 /**
@@ -48,7 +59,11 @@ export interface PrivateCertificateProps {
  *
  * @resource AWS::CertificateManager::Certificate
  */
+@propertyInjectable
 export class PrivateCertificate extends CertificateBase implements ICertificate {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-certificatemanager.PrivateCertificate';
+
   /**
    * Import a certificate
    */
@@ -70,11 +85,14 @@ export class PrivateCertificate extends CertificateBase implements ICertificate 
     // Enhanced CDK Analytics Telemetry
     addConstructMetadata(this, props);
 
+    const certificateExport = (props.allowExport === true) ? 'ENABLED' : undefined;
+
     const cert = new CfnCertificate(this, 'Resource', {
       domainName: props.domainName,
       subjectAlternativeNames: props.subjectAlternativeNames,
       certificateAuthorityArn: props.certificateAuthority.certificateAuthorityArn,
       keyAlgorithm: props.keyAlgorithm?.name,
+      certificateExport,
     });
 
     this.certificateArn = cert.ref;

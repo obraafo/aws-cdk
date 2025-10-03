@@ -1,11 +1,11 @@
 import { Construct } from 'constructs';
-import { CfnBasePathMapping } from './apigateway.generated';
-import { IDomainName } from './domain-name';
-import { IRestApi, RestApiBase } from './restapi';
+import { CfnBasePathMapping, IDomainNameRef, IRestApiRef } from './apigateway.generated';
+import { RestApiBase } from './restapi';
 import { Stage } from './stage';
 import { Resource, Token } from '../../core';
 import { ValidationError } from '../../core/lib/errors';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 export interface BasePathMappingOptions {
   /**
@@ -38,12 +38,12 @@ export interface BasePathMappingProps extends BasePathMappingOptions {
   /**
    * The DomainName to associate with this base path mapping.
    */
-  readonly domainName: IDomainName;
+  readonly domainName: IDomainNameRef;
 
   /**
    * The RestApi resource to target.
    */
-  readonly restApi: IRestApi;
+  readonly restApi: IRestApiRef;
 }
 
 /**
@@ -53,7 +53,11 @@ export interface BasePathMappingProps extends BasePathMappingOptions {
  * Unless you're importing a domain with `DomainName.fromDomainNameAttributes()`,
  * you can use `DomainName.addBasePathMapping()` to define mappings.
  */
+@propertyInjectable
 export class BasePathMapping extends Resource {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-apigateway.BasePathMapping';
+
   constructor(scope: Construct, id: string, props: BasePathMappingProps) {
     super(scope, id);
     // Enhanced CDK Analytics Telemetry
@@ -82,8 +86,8 @@ export class BasePathMapping extends Resource {
 
     new CfnBasePathMapping(this, 'Resource', {
       basePath: props.basePath,
-      domainName: props.domainName.domainName,
-      restApiId: props.restApi.restApiId,
+      domainName: props.domainName.domainNameRef.domainName,
+      restApiId: props.restApi.restApiRef.restApiId,
       stage: stage?.stageName,
     });
   }

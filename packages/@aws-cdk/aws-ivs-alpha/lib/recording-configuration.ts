@@ -1,10 +1,11 @@
 import { CfnRecordingConfiguration } from 'aws-cdk-lib/aws-ivs';
-import { IBucket } from 'aws-cdk-lib/aws-s3';
+import { IBucketRef } from 'aws-cdk-lib/aws-s3';
 import { Duration, Fn, IResource, Resource, Stack, Token } from 'aws-cdk-lib/core';
 import { Construct } from 'constructs';
 import { RenditionConfiguration } from './rendition-configuration';
 import { ThumbnailConfiguration } from './thumbnail-configuration';
 import { addConstructMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * Properties of the IVS Recording configuration
@@ -13,7 +14,7 @@ export interface RecordingConfigurationProps {
   /**
    * S3 bucket where recorded videos will be stored.
    */
-  readonly bucket: IBucket;
+  readonly bucket: IBucketRef;
 
   /**
    * The name of the Recording configuration.
@@ -74,7 +75,11 @@ export interface IRecordingConfiguration extends IResource {
  *
  * @resource AWS::IVS::RecordingConfiguration
  */
+@propertyInjectable
 export class RecordingConfiguration extends Resource implements IRecordingConfiguration {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-ivs-alpha.RecordingConfiguration';
+
   /**
    * Imports an IVS Recording Configuration from attributes.
    */
@@ -141,7 +146,7 @@ export class RecordingConfiguration extends Resource implements IRecordingConfig
     const resource = new CfnRecordingConfiguration(this, 'Resource', {
       destinationConfiguration: {
         s3: {
-          bucketName: this.props.bucket.bucketName,
+          bucketName: this.props.bucket.bucketRef.bucketName,
         },
       },
       name: this.props.recordingConfigurationName,

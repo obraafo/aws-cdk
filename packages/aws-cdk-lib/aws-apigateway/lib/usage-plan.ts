@@ -1,12 +1,13 @@
 import { Construct } from 'constructs';
 import { IApiKey } from './api-key';
-import { CfnUsagePlan, CfnUsagePlanKey } from './apigateway.generated';
+import { CfnUsagePlan, CfnUsagePlanKey, IApiKeyRef, IUsagePlanRef, UsagePlanReference } from './apigateway.generated';
 import { Method } from './method';
 import { IRestApi } from './restapi';
 import { Stage } from './stage';
 import { validateDouble, validateInteger } from './util';
 import { FeatureFlags, IResource, Lazy, Names, Resource, Token } from '../../core';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 import { APIGATEWAY_USAGEPLANKEY_ORDERINSENSITIVE_ID } from '../../cx-api';
 
 /**
@@ -160,7 +161,7 @@ export interface AddApiKeyOptions {
 /**
  * A UsagePlan, either managed by this CDK app, or imported.
  */
-export interface IUsagePlan extends IResource {
+export interface IUsagePlan extends IResource, IUsagePlanRef {
   /**
    * Id of the usage plan
    * @attribute
@@ -173,7 +174,7 @@ export interface IUsagePlan extends IResource {
    * @param apiKey the api key to associate with this usage plan
    * @param options options that control the behaviour of this method
    */
-  addApiKey(apiKey: IApiKey, options?: AddApiKeyOptions): void;
+  addApiKey(apiKey: IApiKeyRef, options?: AddApiKeyOptions): void;
 
 }
 
@@ -190,7 +191,7 @@ abstract class UsagePlanBase extends Resource implements IUsagePlan {
    * @param apiKey the api key to associate with this usage plan
    * @param options options that control the behaviour of this method
    */
-  public addApiKey(apiKey: IApiKey, options?: AddApiKeyOptions): void {
+  public addApiKey(apiKey: IApiKeyRef, options?: AddApiKeyOptions): void {
     let id: string;
     const prefix = 'UsagePlanKeyResource';
 
@@ -202,7 +203,7 @@ abstract class UsagePlanBase extends Resource implements IUsagePlan {
     }
 
     const resource = new CfnUsagePlanKey(this, id, {
-      keyId: apiKey.keyId,
+      keyId: apiKey.apiKeyRef.apiKeyId,
       keyType: UsagePlanKeyType.API_KEY,
       usagePlanId: this.usagePlanId,
     });
@@ -210,9 +211,19 @@ abstract class UsagePlanBase extends Resource implements IUsagePlan {
       resource.overrideLogicalId(options?.overrideLogicalId);
     }
   }
+
+  public get usagePlanRef(): UsagePlanReference {
+    return {
+      usagePlanId: this.usagePlanId,
+    };
+  }
 }
 
+@propertyInjectable
 export class UsagePlan extends UsagePlanBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-apigateway.UsagePlan';
+
   /**
    * Import an externally defined usage plan using its ARN.
    *

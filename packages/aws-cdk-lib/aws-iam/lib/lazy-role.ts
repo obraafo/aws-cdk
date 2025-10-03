@@ -1,5 +1,6 @@
 import { Construct } from 'constructs';
 import { Grant } from './grant';
+import { RoleReference } from './iam.generated';
 import { IManagedPolicy } from './managed-policy';
 import { Policy } from './policy';
 import { PolicyStatement } from './policy-statement';
@@ -7,6 +8,7 @@ import { AddToPrincipalPolicyResult, IPrincipal, PrincipalPolicyFragment } from 
 import { IRole, Role, RoleProps } from './role';
 import * as cdk from '../../core';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Properties for defining a LazyRole
@@ -26,7 +28,10 @@ export interface LazyRoleProps extends RoleProps {
  *
  * @resource AWS::IAM::Role
  */
+@propertyInjectable
 export class LazyRole extends cdk.Resource implements IRole {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-iam.LazyRole';
   public readonly grantPrincipal: IPrincipal = this;
   public readonly principalAccount: string | undefined = this.env.account;
   public readonly assumeRoleAction: string = 'sts:AssumeRole';
@@ -93,6 +98,10 @@ export class LazyRole extends cdk.Resource implements IRole {
    */
   public get roleArn(): string {
     return this.instantiate().roleArn;
+  }
+
+  public get roleRef(): RoleReference {
+    return this.instantiate().roleRef;
   }
 
   /**

@@ -1,10 +1,11 @@
 import { Construct } from 'constructs';
 import { CfnUserPoolGroup } from './cognito.generated';
 import { IUserPool } from './user-pool';
-import { IRole } from '../../aws-iam';
+import { IRoleRef } from '../../aws-iam';
 import { IResource, Resource, Token } from '../../core';
 import { ValidationError } from '../../core/lib/errors';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents a user pool group.
@@ -57,7 +58,7 @@ export interface UserPoolGroupOptions {
    *
    * @default - no description
    */
-  readonly role?: IRole;
+  readonly role?: IRoleRef;
 }
 
 /**
@@ -73,7 +74,11 @@ export interface UserPoolGroupProps extends UserPoolGroupOptions {
 /**
  * Define a user pool group
  */
+@propertyInjectable
 export class UserPoolGroup extends Resource implements IUserPoolGroup {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-cognito.UserPoolGroup';
+
   /**
    * Import a UserPoolGroup given its group name
    */
@@ -116,7 +121,7 @@ export class UserPoolGroup extends Resource implements IUserPoolGroup {
       description: props.description,
       groupName: props.groupName,
       precedence: props.precedence,
-      roleArn: props.role?.roleArn,
+      roleArn: props.role?.roleRef.roleArn,
     });
 
     this.groupName = resource.ref;

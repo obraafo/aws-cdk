@@ -1,8 +1,8 @@
 import { Construct } from 'constructs';
-import { IClientVpnEndpoint } from './client-vpn-endpoint-types';
-import { CfnClientVpnAuthorizationRule } from './ec2.generated';
+import { CfnClientVpnAuthorizationRule, IClientVpnEndpointRef } from './ec2.generated';
 import { Resource, ValidationError } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Options for a ClientVpnAuthorizationRule
@@ -38,20 +38,24 @@ export interface ClientVpnAuthorizationRuleProps extends ClientVpnAuthorizationR
    * The client VPN endpoint to which to add the rule.
    * @default clientVpnEndpoint is required
    */
-  readonly clientVpnEndpoint?: IClientVpnEndpoint;
+  readonly clientVpnEndpoint?: IClientVpnEndpointRef;
 
   /**
    * The client VPN endpoint to which to add the rule.
    * @deprecated Use `clientVpnEndpoint` instead
    * @default clientVpnEndpoint is required
    */
-  readonly clientVpnEndoint?: IClientVpnEndpoint;
+  readonly clientVpnEndoint?: IClientVpnEndpointRef;
 }
 
 /**
  * A client VPN authorization rule
  */
+@propertyInjectable
 export class ClientVpnAuthorizationRule extends Resource {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-ec2.ClientVpnAuthorizationRule';
+
   constructor(scope: Construct, id: string, props: ClientVpnAuthorizationRuleProps) {
     if (!props.clientVpnEndoint && !props.clientVpnEndpoint) {
       throw new ValidationError(
@@ -71,7 +75,7 @@ export class ClientVpnAuthorizationRule extends Resource {
     // Enhanced CDK Analytics Telemetry
     addConstructMetadata(this, props);
     new CfnClientVpnAuthorizationRule(this, 'Resource', {
-      clientVpnEndpointId: clientVpnEndpoint!.endpointId,
+      clientVpnEndpointId: clientVpnEndpoint!.clientVpnEndpointRef.clientVpnEndpointId,
       targetNetworkCidr: props.cidr,
       accessGroupId: props.groupId,
       authorizeAllGroups: !props.groupId,

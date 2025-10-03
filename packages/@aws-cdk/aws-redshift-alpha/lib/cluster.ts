@@ -14,6 +14,7 @@ import { ClusterParameterGroup, IClusterParameterGroup } from './parameter-group
 import { CfnCluster } from 'aws-cdk-lib/aws-redshift';
 import { ClusterSubnetGroup, IClusterSubnetGroup } from './subnet-group';
 import { addConstructMetadata, MethodMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * Possible Node Types to use in the cluster
@@ -312,7 +313,7 @@ export interface ClusterProps {
    *
    * @default - AWS-managed key, if encryption at rest is enabled
    */
-  readonly encryptionKey?: kms.IKey;
+  readonly encryptionKey?: kms.IKeyRef;
 
   /**
    * A preferred maintenance window day/time range. Should be specified as a range ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC).
@@ -506,7 +507,11 @@ abstract class ClusterBase extends Resource implements ICluster {
  *
  * @resource AWS::Redshift::Cluster
  */
+@propertyInjectable
 export class Cluster extends ClusterBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-redshift-alpha.Cluster';
+
   /**
    * Import an existing DatabaseCluster from properties
    */
@@ -687,7 +692,7 @@ export class Cluster extends ClusterBase {
       dbName: props.defaultDatabaseName || 'default_db',
       publiclyAccessible: props.publiclyAccessible || false,
       // Encryption
-      kmsKeyId: props.encryptionKey?.keyId,
+      kmsKeyId: props.encryptionKey?.keyRef.keyId,
       encrypted: props.encrypted ?? true,
       classic: props.classicResizing,
       elasticIp: props.elasticIp,

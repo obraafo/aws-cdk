@@ -1,15 +1,16 @@
 import { Construct } from 'constructs';
-import { CfnResource, CfnResourceProps } from './apigateway.generated';
+import { CfnResource, CfnResourceProps, IResourceRef, ResourceReference } from './apigateway.generated';
 import { Cors, CorsOptions } from './cors';
 import { Integration } from './integration';
 import { MockIntegration } from './integrations';
-import { Method, MethodOptions, AuthorizationType } from './method';
+import { AuthorizationType, Method, MethodOptions } from './method';
 import { IRestApi, RestApi } from './restapi';
 import { IResource as IResourceBase, Resource as ResourceConstruct } from '../../core';
 import { ValidationError } from '../../core/lib/errors';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
-export interface IResource extends IResourceBase {
+export interface IResource extends IResourceBase, IResourceRef {
   /**
    * The parent of this resource or undefined for the root resource.
    */
@@ -382,6 +383,13 @@ export abstract class ResourceBase extends ResourceConstruct implements IResourc
   public get url(): string {
     return this.restApi.urlForPath(this.path);
   }
+
+  public get resourceRef(): ResourceReference {
+    return {
+      resourceId: this.resourceId,
+      restApiId: this.api.restApiId,
+    };
+  }
 }
 
 /**
@@ -404,7 +412,11 @@ export interface ResourceAttributes {
   readonly path: string;
 }
 
+@propertyInjectable
 export class Resource extends ResourceBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-apigateway.Resource';
+
   /**
    * Import an existing resource
    */
@@ -520,7 +532,10 @@ export interface ProxyResourceProps extends ProxyResourceOptions {
  * Defines a {proxy+} greedy resource and an ANY method on a route.
  * @see https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-set-up-simple-proxy.html
  */
+@propertyInjectable
 export class ProxyResource extends Resource {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-apigateway.ProxyResource';
   /**
    * If `props.anyMethod` is `true`, this will be the reference to the 'ANY'
    * method associated with this proxy resource.

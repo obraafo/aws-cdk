@@ -1,14 +1,15 @@
 import { Construct } from 'constructs';
-import { CfnPlacementGroup } from './ec2.generated';
+import { CfnPlacementGroup, IPlacementGroupRef, PlacementGroupReference } from './ec2.generated';
 import { IResource, Resource, ValidationError } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Determines where your instances are placed on the underlying hardware according to the specified PlacementGroupStrategy
  *
  * @see https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html
  */
-export interface IPlacementGroup extends IResource {
+export interface IPlacementGroup extends IResource, IPlacementGroupRef {
   /**
    * The name of this placement group
    *
@@ -148,13 +149,22 @@ export enum PlacementGroupStrategy {
  * Defines a placement group. Placement groups give you fine-grained control over
  * where your instances are provisioned.
  */
+@propertyInjectable
 export class PlacementGroup extends Resource implements IPlacementGroup {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-ec2.PlacementGroup';
+
   /**
    * Import a PlacementGroup by its arn
    */
   public static fromPlacementGroupName(scope: Construct, id: string, placementGroupName: string): IPlacementGroup {
     class Import extends Resource implements IPlacementGroup {
       public readonly placementGroupName = placementGroupName;
+      public get placementGroupRef(): PlacementGroupReference {
+        return {
+          groupName: this.placementGroupName,
+        };
+      }
     }
 
     return new Import(scope, id);
@@ -205,5 +215,11 @@ export class PlacementGroup extends Resource implements IPlacementGroup {
       resource: 'compute-environment',
       resourceName: this.physicalName,
     });
+  }
+
+  public get placementGroupRef(): PlacementGroupReference {
+    return {
+      groupName: this.placementGroupName,
+    };
   }
 }

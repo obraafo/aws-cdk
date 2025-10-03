@@ -112,6 +112,19 @@ describe('cluster', () => {
     }).toThrow(/Cannot specify clusterHandlerSecurityGroup without placeClusterHandlerInVpc set to true/);
   });
 
+  test('throws when cluster name exceeds 100 characters', () => {
+    const { stack } = testFixture();
+    const longClusterName = 'X'.repeat(200);
+
+    expect(() => {
+      new eks.Cluster(stack, 'Cluster', {
+        version: CLUSTER_VERSION,
+        clusterName: longClusterName,
+        kubectlLayer: new KubectlV31Layer(stack, 'KubectlLayer'),
+      });
+    }).toThrow(/Cluster name cannot be more than 100 characters/);
+  });
+
   describe('imported Vpc from unparseable list tokens', () => {
     let stack: cdk.Stack;
     let vpc: ec2.IVpc;
@@ -1495,6 +1508,21 @@ describe('cluster', () => {
       expect(template.Outputs).toBeUndefined(); // no outputs
     });
 
+    test('throws warning when `outputConfigCommand=true` and `mastersRole` is not specified', () => {
+      // GIVEN
+      const { app, stack } = testFixtureNoVpc();
+
+      // WHEN
+      new eks.Cluster(stack, 'Cluster', {
+        version: CLUSTER_VERSION,
+        kubectlLayer: new KubectlV31Layer(stack, 'KubectlLayer'),
+        outputConfigCommand: true,
+      });
+
+      // THEN
+      Annotations.fromStack(stack).hasWarning('/Stack/Cluster', '\'outputConfigCommand\' will be ignored as \'mastersRole\' has not been specified. [ack: @aws-cdk/aws-eks:clusterMastersroleNotSpecified]');
+    });
+
     test('`outputClusterName` can be used to synthesize an output with the cluster name', () => {
       // GIVEN
       const { app, stack } = testFixtureNoVpc();
@@ -2245,7 +2273,7 @@ describe('cluster', () => {
             'Fn::Join': ['', [
               'arn:',
               { Ref: 'AWS::Partition' },
-              ':iam::aws:policy/AmazonEC2ContainerRegistryReadOnly',
+              ':iam::aws:policy/AmazonEC2ContainerRegistryPullOnly',
             ]],
           },
           {
@@ -2554,7 +2582,7 @@ describe('cluster', () => {
             'Fn::Join': ['', [
               'arn:',
               { Ref: 'AWS::Partition' },
-              ':iam::aws:policy/AmazonEC2ContainerRegistryReadOnly',
+              ':iam::aws:policy/AmazonEC2ContainerRegistryPullOnly',
             ]],
           },
           {

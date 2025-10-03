@@ -8,11 +8,12 @@ import { PerformanceInsightRetention } from './props';
 import { CfnDBInstance } from './rds.generated';
 import { ISubnetGroup } from './subnet-group';
 import * as ec2 from '../../aws-ec2';
-import { IRole } from '../../aws-iam';
+import { IRoleRef } from '../../aws-iam';
 import * as kms from '../../aws-kms';
 import { IResource, Resource, Duration, RemovalPolicy, ArnFormat, FeatureFlags } from '../../core';
 import { ValidationError } from '../../core/lib/errors';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 import { AURORA_CLUSTER_CHANGE_SCOPE_OF_INSTANCE_PARAMETER_GROUP_WITH_EACH_PARAMETERS } from '../../cx-api';
 
 /**
@@ -32,7 +33,7 @@ export interface ClusterInstanceBindOptions {
    *
    * @default - A role is automatically created for you
    */
-  readonly monitoringRole?: IRole;
+  readonly monitoringRole?: IRoleRef;
 
   /**
    * The removal policy on the cluster
@@ -483,7 +484,10 @@ export interface IAuroraClusterInstance extends IResource {
   readonly performanceInsightEncryptionKey?: kms.IKey;
 }
 
+@propertyInjectable
 class AuroraClusterInstance extends Resource implements IAuroraClusterInstance {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-rds.AuroraClusterInstance';
   public readonly dbInstanceArn: string;
   public readonly dbiResourceId: string;
   public readonly dbInstanceEndpointAddress: string;
@@ -574,7 +578,7 @@ class AuroraClusterInstance extends Resource implements IAuroraClusterInstance {
         dbSubnetGroupName: props.isFromLegacyInstanceProps ? props.subnetGroup?.subnetGroupName : undefined,
         dbParameterGroupName: instanceParameterGroupConfig?.parameterGroupName,
         monitoringInterval: props.monitoringInterval && props.monitoringInterval.toSeconds(),
-        monitoringRoleArn: props.monitoringRole && props.monitoringRole.roleArn,
+        monitoringRoleArn: props.monitoringRole?.roleRef.roleArn,
         autoMinorVersionUpgrade: props.autoMinorVersionUpgrade,
         allowMajorVersionUpgrade: props.allowMajorVersionUpgrade,
         caCertificateIdentifier: props.caCertificate && props.caCertificate.toString(),

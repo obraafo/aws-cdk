@@ -8,6 +8,7 @@ import { IModel } from './model';
 import { sameEnv } from './private/util';
 import { CfnEndpointConfig } from 'aws-cdk-lib/aws-sagemaker';
 import { addConstructMetadata, MethodMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * The interface for a SageMaker EndpointConfig resource.
@@ -135,7 +136,7 @@ export interface EndpointConfigProps {
    *
    * @default - none
    */
-  readonly encryptionKey?: kms.IKey;
+  readonly encryptionKey?: kms.IKeyRef;
 
   /**
    * A list of instance production variants. You can always add more variants later by calling
@@ -149,7 +150,11 @@ export interface EndpointConfigProps {
 /**
  * Defines a SageMaker EndpointConfig.
  */
+@propertyInjectable
 export class EndpointConfig extends cdk.Resource implements IEndpointConfig {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-sagemaker-alpha.EndpointConfig';
+
   /**
    * Imports an EndpointConfig defined either outside the CDK or in a different CDK stack.
    * @param scope the Construct scope.
@@ -214,7 +219,7 @@ export class EndpointConfig extends cdk.Resource implements IEndpointConfig {
 
     // create the endpoint configuration resource
     const endpointConfig = new CfnEndpointConfig(this, 'EndpointConfig', {
-      kmsKeyId: (props.encryptionKey) ? props.encryptionKey.keyArn : undefined,
+      kmsKeyId: (props.encryptionKey) ? props.encryptionKey.keyRef.keyArn : undefined,
       endpointConfigName: this.physicalName,
       productionVariants: cdk.Lazy.any({ produce: () => this.renderInstanceProductionVariants() }),
     });

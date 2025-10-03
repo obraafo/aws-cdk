@@ -39,23 +39,60 @@ const sampleTableBucket = new TableBucket(scope, 'ExampleTableBucket', {
 });
 ```
 
-Learn more about table buckets maintenance operations and default behavior from the [S3 Tables User Guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html)
-
-### Server-side Encryption
-
-By default, S3 Tables buckets are encrypted using Amazon S3-managed keys (SSE-S3). You can also use AWS Key Management Service (AWS KMS) keys to encrypt your data.
-To do this, you can specify the `kmsKey` property when creating the bucket:
+### Define an S3 Tables Namespace
 
 ```ts
-declare const kmsKey: kms.IKey;
-
-new TableBucket(this, 'TableBucket', {
-  tableBucketName: 'kms-key-s3tables-bucket',
-  kmsKey,
+// Build a namespace
+const sampleNamespace = new Namespace(scope, 'ExampleNamespace', {
+    namespaceName: 'example-namespace-1',
+    tableBucket: tableBucket,
 });
 ```
 
-**Note**: AWS CDK automatically add a resource policy to the KMS key to allow the S3 Tables service to use it for automatic table maintenance. Detail information can be found in the [security for S3 tables](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-tables-kms-permissions.html) documentation.
+### Define an S3 Table
+
+```ts
+// Build a table
+const sampleTable = new Table(scope, 'ExampleTable', {
+    tableName: 'example_table',
+    namespace: namespace,
+    openTableFormat: OpenTableFormat.ICEBERG,
+    withoutMetadata: true,
+});
+
+// Build a table with an Iceberg Schema
+const sampleTableWithSchema = new Table(scope, 'ExampleSchemaTable', {
+    tableName: 'example_table_with_schema',
+    namespace: namespace,
+    openTableFormat: OpenTableFormat.ICEBERG,
+    icebergMetadata: {
+        icebergSchema: {
+            schemaFieldList: [
+            {
+                name: 'id',
+                type: 'int',
+                required: true,
+            },
+            {
+                name: 'name',
+                type: 'string',
+            },
+            ],
+        },
+    },
+    compaction: {
+        status: Status.ENABLED,
+        targetFileSizeMb: 128,
+    },
+    snapshotManagement: {
+        status: Status.ENABLED,
+        maxSnapshotAgeHours: 48,
+        minSnapshotsToKeep: 5,
+    },
+});
+```
+
+Learn more about table buckets maintenance operations and default behavior from the [S3 Tables User Guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-table-buckets-maintenance.html)
 
 ### Controlling Table Bucket Permissions
 
@@ -63,9 +100,11 @@ new TableBucket(this, 'TableBucket', {
 // Grant the principal read permissions to the bucket and all tables within
 const accountId = '123456789012'
 tableBucket.grantRead(new iam.AccountPrincipal(accountId), '*');
+
 // Grant the role write permissions to the bucket and all tables within
 const role = new iam.Role(stack, 'MyRole', { assumedBy: new iam.ServicePrincipal('sample') });
 tableBucket.grantWrite(role, '*');
+
 // Grant the user read and write permissions to the bucket and all tables within 
 tableBucket.grantReadWrite(new iam.User(stack, 'MyUser'), '*');
 
@@ -84,9 +123,72 @@ const permissions = new iam.PolicyStatement({
 tableBucket.addToResourcePolicy(permissions);
 ```
 
+### Controlling Table Bucket Encryption Settings
+
+S3 TableBuckets have SSE (server-side encryption with AES-256) enabled by default with S3 managed keys.
+You can also bring your own KMS key for KMS-SSE or have S3 create a KMS key for you.
+
+If a bucket is encrypted with KMS, grant functions on the bucket will also grant access
+to the TableBucket's associated KMS key.
+
+```ts
+// Provide a user defined KMS Key:
+const key = new kms.Key(scope, 'UserKey', {});
+const encryptedBucket = new TableBucket(scope, 'EncryptedTableBucket', {
+    tableBucketName: 'table-bucket-1',
+    encryption: TableBucketEncryption.KMS,
+    encryptionKey: key,
+});
+// This account principal will also receive kms:Decrypt access to the KMS key
+encryptedBucket.grantRead(new iam.AccountPrincipal('123456789012'), '*');
+
+// Use S3 managed server side encryption (default)
+const encryptedBucketDefault = new TableBucket(scope, 'EncryptedTableBucketDefault', {
+    tableBucketName: 'table-bucket-3',
+    encryption: TableBucketEncryption.S3_MANAGED, // Uses AES-256 encryption by default
+});
+```
+
+When using KMS encryption (`TableBucketEncryption.KMS`), if no encryption key is provided, CDK will automatically create a new KMS key for the table bucket with necessary permissions.
+
+```ts
+// If no key is provided, one will be created automatically
+const encryptedBucketAuto = new TableBucket(scope, 'EncryptedTableBucketAuto', {
+    tableBucketName: 'table-bucket-2',
+    encryption: TableBucketEncryption.KMS,
+});
+```
+
+### Controlling Table Permissions
+
+```ts
+// Grant the principal read permissions to the table
+const accountId = '123456789012'
+table.grantRead(new iam.AccountPrincipal(accountId));
+
+// Grant the role write permissions to the table
+const role = new iam.Role(stack, 'MyRole', { assumedBy: new iam.ServicePrincipal('sample') });
+table.grantWrite(role);
+
+// Grant the user read and write permissions to the table 
+table.grantReadWrite(new iam.User(stack, 'MyUser'));
+
+// Grant an account permissions to the table
+table.grantReadWrite(new iam.AccountPrincipal(accountId));
+
+// Add custom resource policy statements
+const permissions = new iam.PolicyStatement({
+    effect: iam.Effect.ALLOW,
+    actions: ['s3tables:*'],
+    principals: [ new iam.ServicePrincipal('example.aws.internal') ],
+    resources: ['*']
+});
+
+table.addToResourcePolicy(permissions);
+```
+
 ## Coming Soon
 
 L2 Construct support for:
 
-- Namespaces
-- Tables
+- KMS encryption support for Tables

@@ -1,17 +1,37 @@
 import { Construct, DependencyGroup, IDependable } from 'constructs';
 import { ClientVpnAuthorizationRule, ClientVpnAuthorizationRuleOptions } from './client-vpn-authorization-rule';
-import { IClientVpnConnectionHandler, IClientVpnEndpoint, TransportProtocol, VpnPort } from './client-vpn-endpoint-types';
+import {
+  IClientVpnConnectionHandler,
+  IClientVpnEndpoint,
+  TransportProtocol,
+  VpnPort,
+} from './client-vpn-endpoint-types';
 import { ClientVpnRoute, ClientVpnRouteOptions } from './client-vpn-route';
 import { Connections } from './connections';
-import { CfnClientVpnEndpoint, CfnClientVpnTargetNetworkAssociation } from './ec2.generated';
+import {
+  CfnClientVpnEndpoint,
+  CfnClientVpnTargetNetworkAssociation,
+  ClientVpnEndpointReference,
+} from './ec2.generated';
 import { CidrBlock } from './network-util';
 import { ISecurityGroup, SecurityGroup } from './security-group';
 import { IVpc, SubnetSelection } from './vpc';
-import { ISamlProvider } from '../../aws-iam';
+import { ISAMLProviderRef } from '../../aws-iam';
 import * as logs from '../../aws-logs';
 import { CfnOutput, Resource, Token, UnscopedValidationError, ValidationError } from '../../core';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
 import { propertyInjectable } from '../../core/lib/prop-injectable';
+
+/**
+ * Options for Client Route Enforcement
+ */
+export interface ClientRouteEnforcementOptions {
+  /**
+   * Enable or disable Client Route Enforcement.
+   * The state can either be true (enabled) or false (disabled).
+   */
+  readonly enforced: boolean;
+}
 
 /**
  * Options for a client VPN endpoint
@@ -169,6 +189,18 @@ export interface ClientVpnEndpointOptions {
    * @default - no banner is presented to the client
    */
   readonly clientLoginBanner?: string;
+
+  /**
+   * Options for Client Route Enforcement.
+   *
+   * Client Route Enforcement is a feature of Client VPN that helps enforce administrator defined routes on devices connected through the VPN.
+   * This feature helps improve your security posture by ensuring that network traffic originating from a connected client is not inadvertently sent outside the VPN tunnel.
+   *
+   * @see https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/cvpn-working-cre.html
+   *
+   * @default undefined - AWS Client VPN default setting is disable client route enforcement
+   */
+  readonly clientRouteEnforcementOptions?: ClientRouteEnforcementOptions;
 }
 
 /**
@@ -197,7 +229,7 @@ export abstract class ClientVpnUserBasedAuthentication {
   }
 
   /** Federated authentication */
-  public static federated(samlProvider: ISamlProvider, selfServiceSamlProvider?: ISamlProvider): ClientVpnUserBasedAuthentication {
+  public static federated(samlProvider: ISAMLProviderRef, selfServiceSamlProvider?: ISAMLProviderRef): ClientVpnUserBasedAuthentication {
     return new FederatedAuthentication(samlProvider, selfServiceSamlProvider);
   }
 
@@ -225,7 +257,7 @@ class ActiveDirectoryAuthentication extends ClientVpnUserBasedAuthentication {
  * Federated authentication
  */
 class FederatedAuthentication extends ClientVpnUserBasedAuthentication {
-  constructor(private readonly samlProvider: ISamlProvider, private readonly selfServiceSamlProvider?: ISamlProvider) {
+  constructor(private readonly samlProvider: ISAMLProviderRef, private readonly selfServiceSamlProvider?: ISAMLProviderRef) {
     super();
   }
 
@@ -233,8 +265,8 @@ class FederatedAuthentication extends ClientVpnUserBasedAuthentication {
     return {
       type: 'federated-authentication',
       federatedAuthentication: {
-        samlProviderArn: this.samlProvider.samlProviderArn,
-        selfServiceSamlProviderArn: this.selfServiceSamlProvider?.samlProviderArn,
+        samlProviderArn: this.samlProvider.samlProviderRef.samlProviderArn,
+        selfServiceSamlProviderArn: this.selfServiceSamlProvider?.samlProviderRef.samlProviderArn,
       },
     };
   }
@@ -283,6 +315,12 @@ export class ClientVpnEndpoint extends Resource implements IClientVpnEndpoint {
       public readonly endpointId = attrs.endpointId;
       public readonly connections = new Connections({ securityGroups: attrs.securityGroups });
       public readonly targetNetworksAssociated: IDependable = new DependencyGroup();
+
+      public get clientVpnEndpointRef(): ClientVpnEndpointReference {
+        return {
+          clientVpnEndpointId: this.endpointId,
+        };
+      }
     }
     return new Import(scope, id);
   }
@@ -331,6 +369,13 @@ export class ClientVpnEndpoint extends Resource implements IClientVpnEndpoint {
       throw new ValidationError(`The maximum length for the client login banner is 1400, got ${props.clientLoginBanner.length}`, this);
     }
 
+    if (props.clientRouteEnforcementOptions?.enforced && props.splitTunnel) {
+      throw new ValidationError(
+        'Client Route Enforcement cannot be enabled when splitTunnel is true.',
+        this,
+      );
+    }
+
     const logging = props.logging ?? true;
     const logGroup = logging
       ? props.logGroup ?? new logs.LogGroup(this, 'LogGroup')
@@ -357,6 +402,7 @@ export class ClientVpnEndpoint extends Resource implements IClientVpnEndpoint {
       },
       description: props.description,
       dnsServers: props.dnsServers,
+      clientRouteEnforcementOptions: props.clientRouteEnforcementOptions,
       securityGroupIds: securityGroups.map(s => s.securityGroupId),
       selfServicePortal: booleanToEnabledDisabled(props.selfServicePortal),
       serverCertificateArn: props.serverCertificateArn,
@@ -402,6 +448,12 @@ export class ClientVpnEndpoint extends Resource implements IClientVpnEndpoint {
         cidr: props.vpc.vpcCidrBlock,
       });
     }
+  }
+
+  public get clientVpnEndpointRef(): ClientVpnEndpointReference {
+    return {
+      clientVpnEndpointId: this.endpointId,
+    };
   }
 
   /**

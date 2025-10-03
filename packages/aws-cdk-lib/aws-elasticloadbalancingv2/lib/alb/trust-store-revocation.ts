@@ -1,8 +1,9 @@
 import { Construct } from 'constructs';
 import { ITrustStore } from './trust-store';
-import { IBucket } from '../../../aws-s3';
+import { IBucketRef } from '../../../aws-s3';
 import { Resource } from '../../../core';
 import { addConstructMetadata } from '../../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../../core/lib/prop-injectable';
 import { CfnTrustStoreRevocation } from '../elasticloadbalancingv2.generated';
 
 /**
@@ -35,7 +36,7 @@ export interface RevocationContent {
   /**
    * The Amazon S3 bucket for the revocation file
    */
-  readonly bucket: IBucket;
+  readonly bucket: IBucketRef;
 
   /**
    * The Amazon S3 path for the revocation file
@@ -63,7 +64,11 @@ export enum RevocationType {
 /**
  * A new Trust Store Revocation
  */
+@propertyInjectable
 export class TrustStoreRevocation extends Resource {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-elasticloadbalancingv2.TrustStoreRevocation';
+
   constructor(scope: Construct, id: string, props: TrustStoreRevocationProps) {
     super(scope, id);
     // Enhanced CDK Analytics Telemetry
@@ -73,7 +78,7 @@ export class TrustStoreRevocation extends Resource {
       trustStoreArn: props.trustStore.trustStoreArn,
       revocationContents: props.revocationContents?.map(content => ({
         revocationType: content.revocationType,
-        s3Bucket: content.bucket.bucketName,
+        s3Bucket: content.bucket.bucketRef.bucketName,
         s3Key: content.key,
         s3ObjectVersion: content.version,
       })),

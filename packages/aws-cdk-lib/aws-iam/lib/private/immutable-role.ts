@@ -1,7 +1,9 @@
 import { Construct, Dependable, DependencyGroup } from 'constructs';
 import { Resource } from '../../../core';
 import { addConstructMetadata, MethodMetadata } from '../../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../../core/lib/prop-injectable';
 import { Grant } from '../grant';
+import { RoleReference } from '../iam.generated';
 import { IManagedPolicy } from '../managed-policy';
 import { Policy } from '../policy';
 import { PolicyStatement } from '../policy-statement';
@@ -21,7 +23,10 @@ import { IRole } from '../role';
  * which was imported into the CDK with `Role.fromRoleArn`, you don't have to use this class -
  * simply pass the property mutable = false when calling `Role.fromRoleArn`.
  */
+@propertyInjectable
 export class ImmutableRole extends Resource implements IRole {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-iam.ImmutableRole';
   public readonly assumeRoleAction = this.role.assumeRoleAction;
   public readonly policyFragment = this.role.policyFragment;
   public readonly grantPrincipal = this;
@@ -43,6 +48,13 @@ export class ImmutableRole extends Resource implements IRole {
       dependencyRoots: [role],
     });
     this.node.defaultChild = role.node.defaultChild;
+  }
+
+  public get roleRef(): RoleReference {
+    return {
+      roleName: this.roleName,
+      roleArn: this.roleArn,
+    };
   }
 
   @MethodMetadata()

@@ -14,6 +14,7 @@ import { addressOf } from 'constructs/lib/private/uniqueid';
 import { KafkaVersion } from './';
 import { CfnCluster } from 'aws-cdk-lib/aws-msk';
 import { addConstructMetadata, MethodMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * Represents a MSK Cluster
@@ -180,7 +181,7 @@ export interface EbsStorageInfo {
    *
    * @default Uses AWS managed CMK (aws/kafka)
    */
-  readonly encryptionKey?: kms.IKey;
+  readonly encryptionKey?: kms.IKeyRef;
 }
 
 /**
@@ -380,7 +381,7 @@ export interface SaslAuthProps {
    *
    * @default - CMK will be created with alias msk/{clusterName}/sasl/scram
    */
-  readonly key?: kms.IKey;
+  readonly key?: kms.IKeyRef;
 }
 
 /**
@@ -440,7 +441,11 @@ export class ClientAuthentication {
  *
  * @resource AWS::MSK::Cluster
  */
+@propertyInjectable
 export class Cluster extends ClusterBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-msk-alpha.Cluster';
+
   /**
    * Reference an existing cluster, defined outside of the CDK code, by name.
    */
@@ -517,7 +522,7 @@ export class Cluster extends ClusterBase {
     const encryptionAtRest = props.ebsStorageInfo?.encryptionKey
       ? {
         dataVolumeKmsKeyId:
-            props.ebsStorageInfo.encryptionKey.keyId,
+            props.ebsStorageInfo.encryptionKey.keyRef.keyId,
       }
       : undefined; // MSK will create the managed key
 

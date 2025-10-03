@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { CfnGroup } from './iam.generated';
+import { CfnGroup, GroupReference, IGroupRef } from './iam.generated';
 import { IIdentity } from './identity-base';
 import { IManagedPolicy } from './managed-policy';
 import { Policy } from './policy';
@@ -9,13 +9,14 @@ import { AttachedPolicies } from './private/util';
 import { IUser } from './user';
 import { Annotations, ArnFormat, Lazy, Resource, Stack } from '../../core';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents an IAM Group.
  *
  * @see https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups.html
  */
-export interface IGroup extends IIdentity {
+export interface IGroup extends IIdentity, IGroupRef {
   /**
    * Returns the IAM Group Name
    *
@@ -84,6 +85,13 @@ abstract class GroupBase extends Resource implements IGroup {
     return new ArnPrincipal(this.groupArn).policyFragment;
   }
 
+  public get groupRef(): GroupReference {
+    return {
+      groupName: this.groupName,
+      groupArn: this.groupArn,
+    };
+  }
+
   /**
    * Attaches a policy to this group.
    * @param policy The policy to attach.
@@ -128,7 +136,11 @@ abstract class GroupBase extends Resource implements IGroup {
  *
  * @see https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups.html
  */
+@propertyInjectable
 export class Group extends GroupBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-iam.Group';
+
   /**
    * Import an external group by ARN.
    *

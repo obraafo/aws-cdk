@@ -463,121 +463,14 @@ describe('latest Lambda node runtime', () => {
     TestCustomResourceProvider.getOrCreateProvider(stack, 'TestCrProvider');
 
     // THEN
-    Template.fromStack(stack).hasMapping('LatestNodeRuntimeMap', {
-      'af-south-1': {
-        value: 'nodejs20.x',
-      },
-      'ap-east-1': {
-        value: 'nodejs20.x',
-      },
-      'ap-northeast-1': {
-        value: 'nodejs20.x',
-      },
-      'ap-northeast-2': {
-        value: 'nodejs20.x',
-      },
-      'ap-northeast-3': {
-        value: 'nodejs20.x',
-      },
-      'ap-south-1': {
-        value: 'nodejs20.x',
-      },
-      'ap-south-2': {
-        value: 'nodejs20.x',
-      },
-      'ap-southeast-1': {
-        value: 'nodejs20.x',
-      },
-      'ap-southeast-2': {
-        value: 'nodejs20.x',
-      },
-      'ap-southeast-3': {
-        value: 'nodejs20.x',
-      },
-      'ap-southeast-4': {
-        value: 'nodejs20.x',
-      },
-      'ca-central-1': {
-        value: 'nodejs20.x',
-      },
-      'cn-north-1': {
-        value: 'nodejs20.x',
-      },
-      'cn-northwest-1': {
-        value: 'nodejs20.x',
-      },
-      'eu-central-1': {
-        value: 'nodejs20.x',
-      },
-      'eu-central-2': {
-        value: 'nodejs20.x',
-      },
-      'eu-north-1': {
-        value: 'nodejs20.x',
-      },
-      'eu-south-1': {
-        value: 'nodejs20.x',
-      },
-      'eu-south-2': {
-        value: 'nodejs20.x',
-      },
-      'eu-west-1': {
-        value: 'nodejs20.x',
-      },
-      'eu-west-2': {
-        value: 'nodejs20.x',
-      },
-      'eu-west-3': {
-        value: 'nodejs20.x',
-      },
-      'il-central-1': {
-        value: 'nodejs20.x',
-      },
-      'me-central-1': {
-        value: 'nodejs20.x',
-      },
-      'me-south-1': {
-        value: 'nodejs20.x',
-      },
-      'sa-east-1': {
-        value: 'nodejs20.x',
-      },
-      'us-east-1': {
-        value: 'nodejs20.x',
-      },
-      'us-east-2': {
-        value: 'nodejs20.x',
-      },
-      'us-gov-east-1': {
-        value: 'nodejs20.x',
-      },
-      'us-gov-west-1': {
-        value: 'nodejs20.x',
-      },
-      'us-iso-east-1': {
-        value: 'nodejs18.x',
-      },
-      'us-iso-west-1': {
-        value: 'nodejs18.x',
-      },
-      'us-isob-east-1': {
-        value: 'nodejs18.x',
-      },
-      'us-west-1': {
-        value: 'nodejs20.x',
-      },
-      'us-west-2': {
-        value: 'nodejs20.x',
-      },
-    });
+    // Since all regions now have the same latest Node.js runtime (nodejs22.x),
+    // the CDK optimizes by using the literal value instead of creating a mapping
     Template.fromStack(stack).hasResource('AWS::Lambda::Function', {
       Properties: {
         Runtime: {
           'Fn::FindInMap': [
             'LatestNodeRuntimeMap',
-            {
-              Ref: 'AWS::Region',
-            },
+            { Ref: 'AWS::Region' },
             'value',
           ],
         },
@@ -595,7 +488,7 @@ describe('latest Lambda node runtime', () => {
     // THEN
     Template.fromStack(stack).hasResource('AWS::Lambda::Function', {
       Properties: {
-        Runtime: 'nodejs20.x',
+        Runtime: 'nodejs22.x',
       },
     });
   });
@@ -610,7 +503,7 @@ describe('latest Lambda node runtime', () => {
     // THEN
     Template.fromStack(stack).hasResource('AWS::Lambda::Function', {
       Properties: {
-        Runtime: 'nodejs20.x',
+        Runtime: 'nodejs22.x',
       },
     });
   });
@@ -625,7 +518,7 @@ describe('latest Lambda node runtime', () => {
     // THEN
     Template.fromStack(stack).hasResource('AWS::Lambda::Function', {
       Properties: {
-        Runtime: 'nodejs20.x',
+        Runtime: 'nodejs22.x',
       },
     });
   });
@@ -638,9 +531,10 @@ describe('latest Lambda node runtime', () => {
     TestCustomResourceProvider.getOrCreateProvider(stack, 'TestCrProvider');
 
     // THEN
+    // ADC regions now also use nodejs22.x as the latest runtime
     Template.fromStack(stack).hasResource('AWS::Lambda::Function', {
       Properties: {
-        Runtime: 'nodejs18.x',
+        Runtime: 'nodejs22.x',
       },
     });
   });

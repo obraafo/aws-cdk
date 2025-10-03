@@ -1,9 +1,10 @@
 import { Construct } from 'constructs';
 import { IUserPoolAuthenticationProvider } from './identitypool-user-pool-authentication-provider';
 import { CfnIdentityPool, CfnIdentityPoolRoleAttachment, IUserPool, IUserPoolClient } from '../../aws-cognito';
-import { IOpenIdConnectProvider, ISamlProvider, Role, FederatedPrincipal, IRole } from '../../aws-iam';
+import { Role, FederatedPrincipal, IRole, IRoleRef, IOIDCProviderRef, ISAMLProviderRef } from '../../aws-iam';
 import { Resource, IResource, Stack, ArnFormat, Lazy, Token, ValidationError, UnscopedValidationError } from '../../core';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents a Cognito Identity Pool
@@ -252,13 +253,13 @@ export interface IdentityPoolAuthenticationProviders {
    * The OpenIdConnect Provider associated with this Identity Pool
    * @default - no OpenIdConnectProvider
    */
-  readonly openIdConnectProviders?: IOpenIdConnectProvider[];
+  readonly openIdConnectProviders?: IOIDCProviderRef[];
 
   /**
    * The Security Assertion Markup Language provider associated with this Identity Pool
    * @default - no SamlProvider
    */
-  readonly samlProviders?: ISamlProvider[];
+  readonly samlProviders?: ISAMLProviderRef[];
 
   /**
    * The developer provider name to associate with this Identity Pool
@@ -361,7 +362,11 @@ export interface RoleMappingRule {
  *
  * @resource AWS::Cognito::IdentityPool
  */
+@propertyInjectable
 export class IdentityPool extends Resource implements IIdentityPool {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-cognito-identitypool.IdentityPool';
+
   /**
    * Import an existing Identity Pool from its ID
    */
@@ -458,11 +463,11 @@ export class IdentityPool extends Resource implements IIdentityPool {
     if (providers && providers.length) this.cognitoIdentityProviders = providers;
     const openIdConnectProviderArns = authProviders.openIdConnectProviders ?
       authProviders.openIdConnectProviders.map(openIdProvider =>
-        openIdProvider.openIdConnectProviderArn,
+        openIdProvider.oidcProviderRef.oidcProviderArn,
       ) : undefined;
     const samlProviderArns = authProviders.samlProviders ?
       authProviders.samlProviders.map(samlProvider =>
-        samlProvider.samlProviderArn,
+        samlProvider.samlProviderRef.samlProviderArn,
       ) : undefined;
 
     let supportedLoginProviders:any = {};
@@ -563,13 +568,13 @@ interface IdentityPoolRoleAttachmentProps {
    * Default authenticated (User) Role
    * @default - No default authenticated Role will be added
    */
-  readonly authenticatedRole?: IRole;
+  readonly authenticatedRole?: IRoleRef;
 
   /**
    * Default unauthenticated (Guest) Role
    * @default - No default unauthenticated Role will be added
    */
-  readonly unauthenticatedRole?: IRole;
+  readonly unauthenticatedRole?: IRoleRef;
 
   /**
    * Rules for mapping roles to users
@@ -583,7 +588,10 @@ interface IdentityPoolRoleAttachmentProps {
  *
  * @resource AWS::Cognito::IdentityPoolRoleAttachment
  */
+@propertyInjectable
 class IdentityPoolRoleAttachment extends Resource implements IIdentityPoolRoleAttachment {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-cognito-identitypool.IdentityPoolRoleAttachment';
   /**
    * ID of the underlying Identity Pool
    */
@@ -603,8 +611,8 @@ class IdentityPoolRoleAttachment extends Resource implements IIdentityPoolRoleAt
     let roles: any = undefined, roleMappings: any = undefined;
     if (props.authenticatedRole || props.unauthenticatedRole) {
       roles = {};
-      if (props.authenticatedRole) roles.authenticated = props.authenticatedRole.roleArn;
-      if (props.unauthenticatedRole) roles.unauthenticated = props.unauthenticatedRole.roleArn;
+      if (props.authenticatedRole) roles.authenticated = props.authenticatedRole.roleRef.roleArn;
+      if (props.unauthenticatedRole) roles.unauthenticated = props.unauthenticatedRole.roleRef.roleArn;
     }
     if (mappings) {
       roleMappings = this.configureRoleMappings(...mappings);

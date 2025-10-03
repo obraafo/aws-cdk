@@ -2,7 +2,9 @@ import { Construct, Dependable, DependencyGroup } from 'constructs';
 import { Resource, Stack } from '../../../core';
 import { PolicySynthesizer } from '../../../core/lib/helpers-internal';
 import { addConstructMetadata, MethodMetadata } from '../../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../../core/lib/prop-injectable';
 import { Grant } from '../grant';
+import { RoleReference } from '../iam.generated';
 import { IManagedPolicy } from '../managed-policy';
 import { Policy } from '../policy';
 import { PolicyDocument } from '../policy-document';
@@ -56,7 +58,10 @@ export interface PrecreatedRoleProps {
  * synthesized into a separate report and will _not_ be synthesized in
  * the CloudFormation template.
  */
+@propertyInjectable
 export class PrecreatedRole extends Resource implements IRole {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-iam.PrecreatedRole';
   public readonly assumeRoleAction: string;
   public readonly policyFragment: PrincipalPolicyFragment;
   public readonly grantPrincipal = this;
@@ -99,6 +104,13 @@ export class PrecreatedRole extends Resource implements IRole {
       assumeRolePolicy: Stack.of(this).resolve(props.assumeRolePolicy?.toJSON()?.Statement),
       missing: props.missing,
     });
+  }
+
+  public get roleRef(): RoleReference {
+    return {
+      roleName: this.roleName,
+      roleArn: this.roleArn,
+    };
   }
 
   @MethodMetadata()

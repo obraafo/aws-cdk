@@ -664,7 +664,7 @@
         {
          "Ref": "AWS::Partition"
         },
-        ":iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+        ":iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
        ]
       ]
      },
@@ -1236,7 +1236,7 @@
       "Arn"
      ]
     },
-    "AttributesRevision": 4
+    "AttributesRevision": 5
    },
    "DependsOn": [
     "CIDR6",
@@ -4826,7 +4826,7 @@
        {
         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
        },
-       "/2d5ad1dbed21a3c49fb0bc3666d18d12803ad769af1b832c8489dc973fd18114.json"
+       "/543798206b182c24444a74c29927da13adba94e1c710295e6437bbe7bd8ab887.json"
       ]
      ]
     }
@@ -4872,7 +4872,7 @@
        {
         "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-us-east-1"
        },
-       "/bf415411c3693e31a11c0b68826d3426f0afdf2c2b9589a2cd8d6fd95c42a5df.json"
+       "/7cd89073af46848a533c812b0be09345de4afa5a9923e39eb2d880c10da530b0.json"
       ]
      ]
     }
@@ -5001,7 +5001,7 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs20.x"
+    "Runtime": "nodejs22.x"
    },
    "DependsOn": [
     "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65"
@@ -5047,7 +5047,7 @@
       "Arn"
      ]
     },
-    "Runtime": "nodejs20.x"
+    "Runtime": "nodejs22.x"
    },
    "DependsOn": [
     "AWSCDKCfnUtilsProviderCustomResourceProviderRoleFE0EE867"

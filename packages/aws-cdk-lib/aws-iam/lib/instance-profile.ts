@@ -1,14 +1,15 @@
 import { Construct } from 'constructs';
-import { CfnInstanceProfile } from './iam.generated';
+import { CfnInstanceProfile, IInstanceProfileRef, InstanceProfileReference } from './iam.generated';
 import { ServicePrincipal } from './principals';
 import { IRole, Role } from './role';
-import { Resource, Arn, Stack, IResource, PhysicalName } from '../../core';
+import { Arn, IResource, PhysicalName, Resource, Stack } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents an IAM Instance Profile
  */
-export interface IInstanceProfile extends IResource {
+export interface IInstanceProfile extends IResource, IInstanceProfileRef {
   /**
    * The InstanceProfile's name.
    * @attribute
@@ -98,12 +99,23 @@ abstract class InstanceProfileBase extends Resource implements IInstanceProfile 
   public get role(): IRole | undefined {
     return this._role;
   }
+
+  public get instanceProfileRef(): InstanceProfileReference {
+    return {
+      instanceProfileName: this.instanceProfileName,
+      instanceProfileArn: this.instanceProfileArn,
+    };
+  }
 }
 
 /**
  * IAM Instance Profile
  */
+@propertyInjectable
 export class InstanceProfile extends InstanceProfileBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-iam.InstanceProfile';
+
   /**
    * Import an existing InstanceProfile from an InstanceProfile name.
    *

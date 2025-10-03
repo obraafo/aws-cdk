@@ -6,6 +6,7 @@ import { CfnTracker, CfnTrackerConsumer } from 'aws-cdk-lib/aws-location';
 import { generateUniqueId } from './util';
 import { IGeofenceCollection } from './geofence-collection';
 import { addConstructMetadata, MethodMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
 
 /**
  * A Tracker
@@ -61,7 +62,7 @@ export interface TrackerProps {
    *
    * @default - Use an AWS managed key
    */
-  readonly kmsKey?: kms.IKey;
+  readonly kmsKey?: kms.IKeyRef;
 
   /**
    * Whether to opt-in to the Bounding Polygon Queries feature with customer managed key
@@ -119,7 +120,11 @@ export enum PositionFiltering {
  *
  * @see https://docs.aws.amazon.com/location/latest/developerguide/geofence-tracker-concepts.html#tracking-overview
  */
+@propertyInjectable
 export class Tracker extends Resource implements ITracker {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-location-alpha.Tracker';
+
   /**
    * Use an existing tracker by name
    */
@@ -205,7 +210,7 @@ export class Tracker extends Resource implements ITracker {
       description: props.description,
       eventBridgeEnabled: props.eventBridgeEnabled,
       kmsKeyEnableGeospatialQueries: props.kmsKeyEnableGeospatialQueries,
-      kmsKeyId: props.kmsKey?.keyArn,
+      kmsKeyId: props.kmsKey?.keyRef.keyArn,
       positionFiltering: props.positionFiltering,
     });
 

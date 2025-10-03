@@ -1,9 +1,10 @@
 import { Construct } from 'constructs';
-import { CfnKeyPair } from './ec2.generated';
+import { CfnKeyPair, IKeyPairRef, KeyPairReference } from './ec2.generated';
 import { OperatingSystemType } from './machine-image';
-import { StringParameter, IStringParameter } from '../../aws-ssm';
-import { Resource, ResourceProps, Names, Lazy, IResource, ValidationError } from '../../core';
+import { IStringParameter, StringParameter } from '../../aws-ssm';
+import { IResource, Lazy, Names, Resource, ResourceProps, ValidationError } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * The format of the Key Pair
@@ -95,7 +96,7 @@ export interface KeyPairAttributes {
 /**
  * An EC2 Key Pair.
  */
-export interface IKeyPair extends IResource {
+export interface IKeyPair extends IResource, IKeyPairRef {
   /**
    * The name of the key pair.
    *
@@ -121,7 +122,11 @@ export interface IKeyPair extends IResource {
  *
  * @resource AWS::EC2::KeyPair
  */
+@propertyInjectable
 export class KeyPair extends Resource implements IKeyPair {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-ec2.KeyPair';
+
   /**
    * Imports a key pair based on the name.
    */
@@ -141,6 +146,12 @@ export class KeyPair extends Resource implements IKeyPair {
         super(scope, id);
         this.keyPairName = attrs.keyPairName;
         this.type = attrs.type;
+      }
+
+      public get keyPairRef(): KeyPairReference {
+        return {
+          keyName: this.keyPairName,
+        };
       }
 
       /**
@@ -227,6 +238,12 @@ export class KeyPair extends Resource implements IKeyPair {
     this.keyPairId = cfnResource.attrKeyPairId;
     this.type = keyType;
     this.format = keyFormat;
+  }
+
+  public get keyPairRef(): KeyPairReference {
+    return {
+      keyName: this.keyPairName,
+    };
   }
 
   /**

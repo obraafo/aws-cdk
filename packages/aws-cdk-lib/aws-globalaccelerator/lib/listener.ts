@@ -4,6 +4,7 @@ import { EndpointGroup, EndpointGroupOptions } from './endpoint-group';
 import * as ga from './globalaccelerator.generated';
 import * as cdk from '../../core';
 import { addConstructMetadata, MethodMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Interface of the Listener
@@ -46,7 +47,7 @@ export interface ListenerOptions {
    * If you have stateful applications, client affinity lets you direct all
    * requests from a user to the same endpoint.
    *
-   * By default, each connection from each client is routed to seperate
+   * By default, each connection from each client is routed to separate
    * endpoints. Set client affinity to SOURCE_IP to route all connections from
    * a single client to the same endpoint.
    *
@@ -118,7 +119,11 @@ export enum ClientAffinity {
 /**
  * The construct for the Listener
  */
+@propertyInjectable
 export class Listener extends cdk.Resource implements IListener {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-globalaccelerator.Listener';
+
   /**
    * import from ARN
    */

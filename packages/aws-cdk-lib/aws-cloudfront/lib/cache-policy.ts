@@ -1,12 +1,22 @@
-import { Construct } from 'constructs';
-import { CfnCachePolicy } from './cloudfront.generated';
-import { Duration, Names, Resource, Stack, Token, UnscopedValidationError, ValidationError, withResolved } from '../../core';
+import { Construct, Node } from 'constructs';
+import { CachePolicyReference, CfnCachePolicy, ICachePolicyRef } from './cloudfront.generated';
+import {
+  Duration,
+  Names,
+  Resource,
+  Stack,
+  Token,
+  UnscopedValidationError,
+  ValidationError,
+  withResolved,
+} from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
 /**
  * Represents a Cache Policy
  */
-export interface ICachePolicy {
+export interface ICachePolicy extends ICachePolicyRef {
   /**
    * The ID of the cache policy
    * @attribute
@@ -91,7 +101,10 @@ export interface CachePolicyProps {
  * @resource AWS::CloudFront::CachePolicy
  * @link https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html
  */
+@propertyInjectable
 export class CachePolicy extends Resource implements ICachePolicy {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-cloudfront.CachePolicy';
   /**
    * This policy is designed for use with an origin that is an AWS Amplify web app.
    */
@@ -126,17 +139,29 @@ export class CachePolicy extends Resource implements ICachePolicy {
   public static fromCachePolicyId(scope: Construct, id: string, cachePolicyId: string): ICachePolicy {
     return new class extends Resource implements ICachePolicy {
       public readonly cachePolicyId = cachePolicyId;
+      public readonly cachePolicyRef = {
+        cachePolicyId: cachePolicyId,
+      };
     }(scope, id);
   }
 
   /** Use an existing managed cache policy. */
   private static fromManagedCachePolicy(managedCachePolicyId: string): ICachePolicy {
     return new class implements ICachePolicy {
+      public get node(): Node {
+        throw new UnscopedValidationError('The result of fromManagedCachePolicy can not be used in this API');
+      }
+
       public readonly cachePolicyId = managedCachePolicyId;
+      public readonly cachePolicyRef = {
+        cachePolicyId: managedCachePolicyId,
+      };
     }();
   }
 
   public readonly cachePolicyId: string;
+
+  public readonly cachePolicyRef: CachePolicyReference;
 
   constructor(scope: Construct, id: string, props: CachePolicyProps = {}) {
     super(scope, id, {
@@ -181,6 +206,7 @@ export class CachePolicy extends Resource implements ICachePolicy {
       },
     });
 
+    this.cachePolicyRef = resource.cachePolicyRef;
     this.cachePolicyId = resource.ref;
   }
 

@@ -1,10 +1,21 @@
-import { Resource, Names, Lazy, Tags, Token, ValidationError, UnscopedValidationError } from 'aws-cdk-lib';
-import { CfnSubnet, CfnSubnetRouteTableAssociation, INetworkAcl, IRouteTable, ISubnet, NetworkAcl, SubnetNetworkAclAssociation, SubnetType } from 'aws-cdk-lib/aws-ec2';
+import { Lazy, Names, Resource, Tags, Token, UnscopedValidationError, ValidationError } from 'aws-cdk-lib';
+import {
+  CfnSubnet,
+  CfnSubnetRouteTableAssociation,
+  INetworkAcl,
+  IRouteTable,
+  ISubnet,
+  NetworkAcl,
+  SubnetNetworkAclAssociation,
+  SubnetType,
+} from 'aws-cdk-lib/aws-ec2';
 import { Construct, DependencyGroup, IDependable } from 'constructs';
 import { IVpcV2 } from './vpc-v2-base';
 import { CidrBlock, CidrBlockIpv6, defaultSubnetName } from './util';
 import { RouteTable } from './route';
 import { addConstructMetadata, MethodMetadata } from 'aws-cdk-lib/core/lib/metadata-resource';
+import { propertyInjectable } from 'aws-cdk-lib/core/lib/prop-injectable';
+import { SubnetReference } from 'aws-cdk-lib/aws-ec2/lib/ec2.generated';
 
 /**
  * Interface to define subnet CIDR
@@ -143,7 +154,11 @@ export interface ISubnetV2 extends ISubnet {
  * @resource AWS::EC2::Subnet
  *
  */
+@propertyInjectable
 export class SubnetV2 extends Resource implements ISubnetV2 {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = '@aws-cdk.aws-ec2-alpha.SubnetV2';
+
   /**
    * Import an existing subnet to the VPC
    */
@@ -188,6 +203,12 @@ export class SubnetV2 extends Resource implements ISubnetV2 {
        *  Current route table associated with this subnet
        */
       public readonly routeTable: IRouteTable = { routeTableId: attrs.routeTableId! };
+
+      public get subnetRef(): SubnetReference {
+        return {
+          subnetId: this.subnetId,
+        };
+      }
 
       /**
        * Associate a Network ACL with this subnet
@@ -239,6 +260,12 @@ export class SubnetV2 extends Resource implements ISubnetV2 {
    * The IPv6 CIDR Block for this subnet
    */
   public readonly ipv6CidrBlock?: string;
+
+  public get subnetRef(): SubnetReference {
+    return {
+      subnetId: this.subnetId,
+    };
+  }
 
   /**
    * The type of subnet (public or private) that this subnet represents.

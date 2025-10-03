@@ -1,8 +1,9 @@
 import { Construct } from 'constructs';
-import { IBucket } from '../../../aws-s3';
-import { IResource, Resource, Fn, Names, Lazy, Token } from '../../../core';
+import { IBucketRef } from '../../../aws-s3';
+import { Fn, IResource, Lazy, Names, Resource, Token } from '../../../core';
 import { ValidationError } from '../../../core/lib/errors';
 import { addConstructMetadata } from '../../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../../core/lib/prop-injectable';
 import { CfnTrustStore } from '../elasticloadbalancingv2.generated';
 
 /**
@@ -37,7 +38,7 @@ export interface TrustStoreProps {
   /**
    * The bucket that the trust store is hosted in
    */
-  readonly bucket: IBucket;
+  readonly bucket: IBucketRef;
 
   /**
    * The key in S3 to look at for the trust store
@@ -56,7 +57,11 @@ export interface TrustStoreProps {
 /**
  * A new Trust Store
  */
+@propertyInjectable
 export class TrustStore extends Resource implements ITrustStore {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-elasticloadbalancingv2.TrustStore';
+
   /**
    * Import from ARN
    */
@@ -121,7 +126,7 @@ export class TrustStore extends Resource implements ITrustStore {
 
     const resource = new CfnTrustStore(this, 'Resource', {
       name: this.physicalName,
-      caCertificatesBundleS3Bucket: props.bucket.bucketName,
+      caCertificatesBundleS3Bucket: props.bucket.bucketRef.bucketName,
       caCertificatesBundleS3Key: props.key,
       caCertificatesBundleS3ObjectVersion: props.version,
     });

@@ -5,13 +5,16 @@ import {
   CfnVPNConnection,
   CfnVPNConnectionRoute,
   CfnVPNGateway,
+  IVPNConnectionRef,
+  IVPNGatewayRef, VPNConnectionReference, VPNGatewayReference,
 } from './ec2.generated';
 import { IVpc, SubnetSelection } from './vpc';
 import * as cloudwatch from '../../aws-cloudwatch';
 import { IResource, Resource, SecretValue, Token, ValidationError } from '../../core';
 import { addConstructMetadata } from '../../core/lib/metadata-resource';
+import { propertyInjectable } from '../../core/lib/prop-injectable';
 
-export interface IVpnConnection extends IResource {
+export interface IVpnConnection extends IResource, IVPNConnectionRef {
   /**
    * The id of the VPN connection.
    * @attribute VpnConnectionId
@@ -37,7 +40,7 @@ export interface IVpnConnection extends IResource {
 /**
  * The virtual private gateway interface
  */
-export interface IVpnGateway extends IResource {
+export interface IVpnGateway extends IResource, IVPNGatewayRef {
 
   /**
    * The virtual private gateway Id
@@ -162,11 +165,16 @@ export enum VpnConnectionType {
  *
  * @resource AWS::EC2::VPNGateway
  */
+@propertyInjectable
 export class VpnGateway extends Resource implements IVpnGateway {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-ec2.VpnGateway';
   /**
    * The virtual private gateway Id
    */
   public readonly gatewayId: string;
+
+  public readonly vpnGatewayRef: VPNGatewayReference;
 
   constructor(scope: Construct, id: string, props: VpnGatewayProps) {
     super(scope, id);
@@ -178,6 +186,7 @@ export class VpnGateway extends Resource implements IVpnGateway {
     // to be created for the CfnVPNGateway (and 'Resource' would not do that).
     const vpnGW = new CfnVPNGateway(this, 'Default', props);
     this.gatewayId = vpnGW.ref;
+    this.vpnGatewayRef = vpnGW.vpnGatewayRef;
   }
 }
 
@@ -216,6 +225,12 @@ export abstract class VpnConnectionBase extends Resource implements IVpnConnecti
   public abstract readonly customerGatewayId: string;
   public abstract readonly customerGatewayIp: string;
   public abstract readonly customerGatewayAsn: number;
+
+  public get vpnConnectionRef(): VPNConnectionReference {
+    return {
+      vpnConnectionId: this.customerGatewayId,
+    };
+  }
 }
 
 /**
@@ -223,7 +238,11 @@ export abstract class VpnConnectionBase extends Resource implements IVpnConnecti
  *
  * @resource AWS::EC2::VPNConnection
  */
+@propertyInjectable
 export class VpnConnection extends VpnConnectionBase {
+  /** Uniquely identifies this class. */
+  public static readonly PROPERTY_INJECTION_ID: string = 'aws-cdk-lib.aws-ec2.VpnConnection';
+
   /**
    * Import a VPN connection by supplying all attributes directly
    */
